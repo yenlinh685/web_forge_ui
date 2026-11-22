@@ -5,6 +5,7 @@ import { useRef, useState } from 'react'
 import Markdown from '~/components/markdown/Markdown'
 import { Button } from '~/components/ui/button'
 import handleApiError from '~/helper/handleApiError'
+import usePassLesson from '~/hooks/usePassLession'
 import { cn } from '~/lib/utils'
 import { LessonDetailResponse } from '~/services/lessonService'
 import { ApiResponse } from '~/types/apiResponse.type'
@@ -17,14 +18,14 @@ interface LessonQuizProps {
 const LessonQuiz: React.FC<LessonQuizProps> = ({ lesson }) => {
     const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null)
     const [checkedOption, setCheckedOption] = useState<string | null>(null)
-    const [isSubmitted, setIsSubmitted] = useState(false) // prevent submit multiple times
+
+    const { passLesson } = usePassLesson(lesson.data)
 
     const submitBtnRef = useRef<HTMLButtonElement>(null)
 
     const handleSelectOption = (answerId: string) => {
         setCheckedOption(null)
         setSelectedAnswerId(answerId)
-        setIsSubmitted(false)
     }
 
     const handleCheck = () => {
@@ -48,11 +49,7 @@ const LessonQuiz: React.FC<LessonQuizProps> = ({ lesson }) => {
                     submitBtnRef.current.disabled = true
                 }
 
-                if (!isSubmitted) {
-                    // call API submit answer
-
-                    setIsSubmitted(true)
-                }
+                passLesson()
             }
         } catch (error) {
             handleApiError(error)

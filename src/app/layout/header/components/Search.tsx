@@ -11,9 +11,9 @@ import { Card, CardContent } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
 import handleApiError from '~/helper/handleApiError'
 import { cn } from '~/lib/utils'
-import * as searchServices from '~/services/SearchService'
 import { ApiResponse } from '~/types/apiResponse.type'
 import { SearchModel, SearchResult, SearchTypes } from '~/types/search.type'
+import * as searchServices from '~/services/searchService'
 
 interface SearchProps {
     className?: string

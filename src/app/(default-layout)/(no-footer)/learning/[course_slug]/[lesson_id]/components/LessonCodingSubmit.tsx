@@ -11,6 +11,7 @@ import { cn } from '~/lib/utils'
 import { LessonDetailResponse } from '~/services/lessonService'
 import { CodingFileModel } from '~/types/lesson.type'
 import { createCanvasConfetti } from '~/utils/createCanvasConfetti'
+import usePassLesson from '~/hooks/usePassLession'
 
 interface LessonCodingSubmitProps {
     lesson: NoInfer<LessonDetailResponse>
@@ -27,6 +28,8 @@ interface TestResult {
 
 const LessonCodingSubmit = ({ lesson, buildHtmlPreview, files }: LessonCodingSubmitProps) => {
     const iframeRunnerRef = useRef<HTMLIFrameElement>(null)
+
+    const { passLesson } = usePassLesson(lesson)
 
     const [testResults, setTestResults] = useState<TestResult[]>(() => {
         return (
@@ -122,9 +125,11 @@ const LessonCodingSubmit = ({ lesson, buildHtmlPreview, files }: LessonCodingSub
         sendEvent('lesson-code:run-test-case', null)
 
         /**
-         * If pass all test cases, run confetti effect
+         * If pass all test cases, run confetti effect and mark the lesson as completed
          */
         if (results.every((result) => result.passed)) {
+            passLesson()
+
             requestIdleCallback(() => {
                 createCanvasConfetti({ x: 0.5, y: 1 })
             })

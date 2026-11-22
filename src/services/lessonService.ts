@@ -41,3 +41,9 @@ export const saveUserCode = async ({
 
     return data
 }
+
+export const passLesson = async (lessonId: string) => {
+    const { data } = await axiosClient.post(`/lessons/${lessonId}/pass`)
+
+    return data
+}

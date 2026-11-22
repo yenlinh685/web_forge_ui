@@ -3,10 +3,15 @@
 import { useCallback, useRef, useState } from 'react'
 import ReactPlayer from 'react-player'
 import Image from 'next/image'
+import { toast } from 'sonner'
 
 import Markdown from '~/components/markdown/Markdown'
 import { LessonDetailResponse } from '~/services/lessonService'
 import { ApiResponse } from '~/types/apiResponse.type'
+import usePassLesson from '~/hooks/usePassLession'
+
+const WATCHED_THRESHOLD = 0.75
+const SEEK_TOLERANCE_SECONDS = 2
 
 interface LessonVideoProps {
     lesson: NoInfer<ApiResponse<LessonDetailResponse, never>>
@@ -16,20 +21,59 @@ const LessonVideo: React.FC<LessonVideoProps> = ({ lesson }) => {
     const [isPlaying, setIsPlaying] = useState(false)
     const [isThumbnailLoaded, setIsThumbnailLoaded] = useState(false)
 
-    const expectedTimeRef = useRef(0)
+    const { passLesson } = usePassLesson(lesson.data)
+
+    const playerRef = useRef<ReactPlayer>(null)
+    const durationRef = useRef(0)
+    const lastTimeRef = useRef(0)
     const maxWatchedRef = useRef(0)
+    const watchedSecondsRef = useRef(0)
 
-    const handleProgress = useCallback((state: { playedSeconds: number }) => {
-        const currentTime = state.playedSeconds
-        const diff = Math.abs(currentTime - expectedTimeRef.current)
+    const isCompleted = lesson.data.progress?.status === 'COMPLETED'
 
-        if (diff > 2 && currentTime > maxWatchedRef.current + 2) {
-            console.log('Phát hiện tua')
-        }
+    /**
+     * Không được tua vượt quá vị trí xa nhất mà người dùng đã xem. Nếu tua vượt, phải quay lại vị trí trước khi thực hiện thao tác tua. Có thể tua lại hoặc di chuyển trong phạm vi video đã xem.
+     * Chỉ tính thời gian video thực sự được phát. Nếu khoảng nhảy giữa hai lần cập nhật vượt quá mức sai số cho phép thì được xem là thao tác tua.
+     * Bài học được đánh dấu hoàn thành khi người dùng đã xem ít nhất 75% thời lượng video.
+     * Sau khi bài học hoàn thành, người dùng được phép tua video tự do.
+     */
+    const handleProgress = useCallback(
+        (state: { playedSeconds: number }) => {
+            const currentTime = state.playedSeconds
+            const delta = currentTime - lastTimeRef.current
 
-        maxWatchedRef.current = Math.max(maxWatchedRef.current, currentTime)
-        expectedTimeRef.current = currentTime + 1
-    }, [])
+            const isSkippingAhead =
+                delta > SEEK_TOLERANCE_SECONDS && currentTime > maxWatchedRef.current + SEEK_TOLERANCE_SECONDS
+
+            if (isSkippingAhead && !isCompleted) {
+                playerRef.current?.seekTo(lastTimeRef.current, 'seconds')
+
+                toast.warning('Bạn chưa thể tua qua phần chưa xem', {
+                    id: 'video-seek-blocked',
+                })
+
+                return
+            }
+
+            if (delta > 0 && delta <= SEEK_TOLERANCE_SECONDS) {
+                watchedSecondsRef.current += delta
+            }
+
+            lastTimeRef.current = currentTime
+            maxWatchedRef.current = Math.max(maxWatchedRef.current, currentTime)
+
+            console.log('currentTime', currentTime)
+            console.log('durationRef.current', durationRef.current)
+            console.log('watchedSecondsRef.current', watchedSecondsRef.current)
+            console.log('WATCHED_THRESHOLD', WATCHED_THRESHOLD)
+
+            if (durationRef.current > 0 && watchedSecondsRef.current >= durationRef.current * WATCHED_THRESHOLD) {
+                passLesson()
+            }
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [isCompleted],
+    )
 
     const showThumbnail = !isPlaying
 
@@ -40,6 +84,7 @@ const LessonVideo: React.FC<LessonVideoProps> = ({ lesson }) => {
                     <div className="mx-auto aspect-video w-full max-w-7xl">
                         {isThumbnailLoaded && (
                             <ReactPlayer
+                                ref={playerRef}
                                 url={`${lesson.data.video?.video_url}`}
                                 width="100%"
                                 height="100%"
@@ -47,6 +92,10 @@ const LessonVideo: React.FC<LessonVideoProps> = ({ lesson }) => {
                                 playing={isPlaying}
                                 playsinline
                                 onProgress={handleProgress}
+                                progressInterval={500}
+                                onDuration={(duration) => {
+                                    durationRef.current = duration
+                                }}
                                 config={{
                                     youtube: {
                                         playerVars: {

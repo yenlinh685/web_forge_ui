@@ -100,8 +100,12 @@ const LoginForm = ({ searchParams }: { searchParams: { redirect_to?: string } })
             if (response) {
                 handleRedirectNextPage(response, response.email)
             }
-        } catch (error) {
-            setErrorMessage(getErrMessageFromAPI(error))
+        } catch (error: any) {
+            if (error.code === 'auth/account-exists-with-different-credential') {
+                setErrorMessage('Tài khoản đã tồn tại với nhà cung cấp khác.')
+            } else {
+                setErrorMessage(getErrMessageFromAPI(error))
+            }
         }
     }
 
